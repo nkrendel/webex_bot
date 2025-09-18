@@ -234,11 +234,17 @@ class WebexBot(WebexWebsocketClient):
         room_id = teams_message.roomId
         is_one_on_one_space = 'ONE_ON_ONE' in activity['target']['tags']
 
-        # Find the command that was sent, if any
-        command = None
+        # Split user command into first word and arguments for better matching
         user_command = raw_message.lower()
+        user_command_parts = user_command.split() if user_command else []
+        first_word = user_command_parts[0] if user_command_parts else ""
+        
         log.info(f"New user_command: {user_command}")
         log.info(f"is_card_callback_command: {is_card_callback_command}")
+        log.debug(f"Command first word: '{first_word}'")
+
+        # Find the command that was sent, if any
+        command = None
 
         for c in self.commands:
             log.debug("--------")
@@ -249,13 +255,17 @@ class WebexBot(WebexWebsocketClient):
                 log.info(f"exact_command_keyword_match: {c.exact_command_keyword_match}")
                 log.info(f"user_command: {user_command}")
                 log.info(f"command_keyword: {c.command_keyword}")
+                log.info(f"first_word: {first_word}")
+                
                 if c.exact_command_keyword_match: # Check if the "exact_command_keyword_match" flag is set to True
-                    if user_command == c.command_keyword:
+                    # For exact match, check both full message (backward compatibility) and first word (new feature)
+                    if user_command == c.command_keyword or first_word == c.command_keyword:
                         log.info("Exact match found!")
-                        command=c
+                        command = c
                         # If a command was found, stop looking for others
                         break
                 else: # Enter here if the "exact_command_keyword_match" flag is set to False
+                    # For substring match, maintain existing behavior
                     if user_command.find(c.command_keyword) != -1:
                         log.info("Sub-string match found!")
                         command = c
@@ -281,7 +291,7 @@ class WebexBot(WebexWebsocketClient):
         # Build the reply to the user
         reply = ""
         reply_one_to_one = False
-        message_without_command = WebexBot.get_message_passed_to_command(command.command_keyword, raw_message)
+        message_without_command = WebexBot.get_message_passed_to_command(command.command_keyword, raw_message, first_word)
         thread_parent_id = None
 
         if hasattr(teams_message, "inputs") and teams_message.inputs.get("thread_parent_id"):
@@ -434,15 +444,21 @@ class WebexBot(WebexWebsocketClient):
             return e.reply_message, e.reply_one_to_one
 
     @staticmethod
-    def get_message_passed_to_command(command, message):
+    def get_message_passed_to_command(command, message, first_word=None):
         """
         Remove the command from the start of the message
 
         :param command: command string
         :param message: message string
+        :param first_word: first word of the message (for enhanced argument parsing)
         :return: message without command prefix
         """
 
         if command and message.lower().startswith(command.lower()):
-            return message[len(command):]
+            # Traditional behavior: remove command from start of message
+            return message[len(command):].strip()
+        elif first_word and command and first_word.lower() == command.lower():
+            # Enhanced behavior: remove first word if it matches command
+            message_parts = message.split(None, 1)  # Split on first whitespace only
+            return message_parts[1] if len(message_parts) > 1 else ""
         return message
