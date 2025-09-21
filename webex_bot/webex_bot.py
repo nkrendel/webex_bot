@@ -220,6 +220,7 @@ class WebexBot(WebexWebsocketClient):
 
         # Log details on message
         log.info(f"Message from {user_email}: {teams_message}")
+        log.info(f"Bot display name: {self.bot_display_name}")
 
         if not self.check_user_approved(user_email=user_email, approved_rooms=self.approved_rooms):
             return
