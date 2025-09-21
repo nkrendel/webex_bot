@@ -91,7 +91,7 @@ class WebexBot(WebexWebsocketClient):
         self.approved_domains = approved_domains if approved_domains is not None else []
         self.approved_rooms = approved_rooms if approved_rooms is not None else []
         self.approval_parameters_check()
-        self.bot_display_name = ""
+        #self.bot_display_name = ""
         self.threads = threads
         self.allow_bot_to_bot = allow_bot_to_bot
 
