@@ -404,13 +404,9 @@ class WebexBot(WebexWebsocketClient):
                 else:
                     self.teams.messages.create(roomId=room_id,
                                                markdown=default_move_to_one_to_one_heads_up)
-            if self.threads:
-                self.teams.messages.create(toPersonEmail=user_email,
-                                           markdown=reply,
-                                           parentId=conv_target_id)
-            else:
-                self.teams.messages.create(toPersonEmail=user_email,
-                                           markdown=reply)
+            # Don't include parentId for DMs - Webex API doesn't support threading in DMs
+            self.teams.messages.create(toPersonEmail=user_email,
+                                       markdown=reply)
         else:
             if self.threads:
                 self.teams.messages.create(roomId=room_id, markdown=reply, parentId=conv_target_id)
