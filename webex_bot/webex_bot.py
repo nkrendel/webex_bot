@@ -451,7 +451,7 @@ class WebexBot(WebexWebsocketClient):
                                        reply,
                                        conv_target_id):
         default_move_to_one_to_one_heads_up = \
-            quote_info(f"{user_email} I've messaged you 1-1. Please reply to me there.")
+            quote_info("Dobby must reply privately, sir.")
         if reply_one_to_one:
             if not is_one_on_one_space:
                 if self.threads:
