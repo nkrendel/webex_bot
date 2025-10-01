@@ -391,6 +391,22 @@ class WebexBot(WebexWebsocketClient):
         
         # allow command handlers to craft their own Teams message
         if reply and isinstance(reply, Response):
+            # Check if this Response should be sent as a DM (PrivateResponse)
+            reply_one_to_one_attr = getattr(reply, 'reply_one_to_one', False)
+            
+            if reply_one_to_one_attr:
+                # This is a PrivateResponse - send via send_message_to_room_or_person
+                # which handles the DM routing and room notification
+                log.info(f"Response has reply_one_to_one=True, routing to DM handler")
+                self.send_message_to_room_or_person(user_email,
+                                                   room_id,
+                                                   True,  # reply_one_to_one
+                                                   is_one_on_one_space,
+                                                   reply,  # Pass the Response object
+                                                   conv_target_id)
+                return "ok"
+            
+            # Normal Response - send to room
             # If the Response lacks a roomId, set it to the incoming room
             if not reply.roomId:
                 reply.roomId = room_id
@@ -446,8 +462,23 @@ class WebexBot(WebexWebsocketClient):
                     self.teams.messages.create(roomId=room_id,
                                                markdown=default_move_to_one_to_one_heads_up)
             # Don't include parentId for DMs - Webex API doesn't support threading in DMs
-            self.teams.messages.create(toPersonEmail=user_email,
-                                       markdown=reply)
+            # Check if reply is a Response object (could contain Adaptive Cards)
+            if isinstance(reply, Response):
+                # Response object - build message params
+                message_params = reply.as_dict()
+                # Replace roomId with toPersonEmail for DM
+                if 'roomId' in message_params:
+                    del message_params['roomId']
+                message_params['toPersonEmail'] = user_email
+                # Remove parentId if present (not supported in DMs)
+                if 'parentId' in message_params:
+                    del message_params['parentId']
+                log.info(f"Sending Response with attachments to DM: {user_email}")
+                self.teams.messages.create(**message_params)
+            else:
+                # Plain text/markdown string
+                self.teams.messages.create(toPersonEmail=user_email,
+                                           markdown=reply)
         else:
             if self.threads:
                 self.teams.messages.create(roomId=room_id, markdown=reply, parentId=conv_target_id)
