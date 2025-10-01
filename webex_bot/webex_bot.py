@@ -348,6 +348,33 @@ class WebexBot(WebexWebsocketClient):
         return self.do_reply(reply, room_id, user_email, reply_one_to_one, is_one_on_one_space, thread_parent_id)
 
     def do_reply(self, reply, room_id, user_email, reply_one_to_one, is_one_on_one_space, conv_target_id):
+        # Handle ThreadedResponse (two-message pattern)
+        try:
+            from src.bot.utils.threaded_response import ThreadedResponse
+            if reply and isinstance(reply, ThreadedResponse):
+                log.info("Processing ThreadedResponse - sending context then detail")
+                
+                # Send context message first
+                context = reply.context
+                if not context.roomId:
+                    context.roomId = room_id
+                # Don't thread context - it's the parent
+                context_dict = context.as_dict()
+                context_msg = self.teams.messages.create(**context_dict)
+                
+                # Send detail message threaded under context
+                detail = reply.detail
+                if not detail.roomId:
+                    detail.roomId = room_id
+                # Thread detail under the context message
+                detail.parentId = context_msg.id
+                detail_dict = detail.as_dict()
+                self.teams.messages.create(**detail_dict)
+                
+                return "ok"
+        except ImportError:
+            pass  # ThreadedResponse not available
+        
         # allow command handlers to craft their own Teams message
         if reply and isinstance(reply, Response):
             # If the Response lacks a roomId, set it to the incoming room
