@@ -302,15 +302,11 @@ class WebexBot(WebexWebsocketClient):
 
             if activity['parent']['type'] == 'reply':
                 thread_parent_id = activity['parent']['id']
-            elif activity['parent']['type'] == 'cardAction':
-                # For cardActions, try to use parent ID if available
-                # Note: There was a reported Webex server bug with threading cardActions,
-                # but we'll allow it and let handlers decide via explicit parentId setting
-                thread_parent_id = activity['parent'].get('id')
-                log.info(f"cardAction with parent id: {thread_parent_id}")
             else:
-                # Unknown parent type
-                log.warning(f"Unknown parent type in activity: {activity}")
+                # Webex server limitation: "Cannot reply to a reply"
+                # For cardActions, the parent is already a reply, so we can't thread under it.
+                # Handlers must store and use the ORIGINAL message ID instead.
+                log.info(f"Parent type '{activity['parent'].get('type')}' - cannot use for threading due to Webex limitation")
                 thread_parent_id = None
         elif 'id' in activity:
             thread_parent_id = activity['id']
