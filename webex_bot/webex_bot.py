@@ -348,28 +348,43 @@ class WebexBot(WebexWebsocketClient):
         return self.do_reply(reply, room_id, user_email, reply_one_to_one, is_one_on_one_space, thread_parent_id)
 
     def do_reply(self, reply, room_id, user_email, reply_one_to_one, is_one_on_one_space, conv_target_id):
-        # Handle ThreadedResponse (two-message pattern)
+        # Handle ThreadedResponse
         try:
             from src.bot.utils.threaded_response import ThreadedResponse
             if reply and isinstance(reply, ThreadedResponse):
-                log.info("Processing ThreadedResponse - sending context then detail")
+                log.info("Processing ThreadedResponse - threading detail under user's message")
                 
-                # Send context message first
-                context = reply.context
-                if not context.roomId:
-                    context.roomId = room_id
-                # Don't thread context - it's the parent
-                context_dict = context.as_dict()
-                context_msg = self.teams.messages.create(**context_dict)
-                
-                # Send detail message threaded under context
+                # OPTION 2A (CURRENT): Thread detail only under user's message
+                # User's message is now visible, so context is redundant
                 detail = reply.detail
                 if not detail.roomId:
                     detail.roomId = room_id
-                # Thread detail under the context message
-                detail.parentId = context_msg.id
+                # Thread detail under user's original message
+                if conv_target_id and self.threads:
+                    detail.parentId = conv_target_id
                 detail_dict = detail.as_dict()
                 self.teams.messages.create(**detail_dict)
+                
+                # OPTION 2B (COMMENTED): To send both context AND detail under user's message
+                # Uncomment this section and comment out Option 2A above to enable
+                #
+                # # Send context message threaded under user's message
+                # context = reply.context
+                # if not context.roomId:
+                #     context.roomId = room_id
+                # if conv_target_id and self.threads:
+                #     context.parentId = conv_target_id
+                # context_dict = context.as_dict()
+                # self.teams.messages.create(**context_dict)
+                #
+                # # Send detail message also threaded under user's message (sibling to context)
+                # detail = reply.detail
+                # if not detail.roomId:
+                #     detail.roomId = room_id
+                # if conv_target_id and self.threads:
+                #     detail.parentId = conv_target_id
+                # detail_dict = detail.as_dict()
+                # self.teams.messages.create(**detail_dict)
                 
                 return "ok"
         except ImportError:
