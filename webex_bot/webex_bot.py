@@ -33,7 +33,8 @@ class WebexBot(WebexWebsocketClient):
                  allow_bot_to_bot=False,
                  help_command=None,
                  log_level="INFO",
-                 proxies=None):
+                 proxies=None,
+                 denied_access_message=None):
         """
         Initialise WebexBot.
 
@@ -90,6 +91,7 @@ class WebexBot(WebexWebsocketClient):
         self.approved_users = approved_users if approved_users is not None else []
         self.approved_domains = approved_domains if approved_domains is not None else []
         self.approved_rooms = approved_rooms if approved_rooms is not None else []
+        self.denied_access_message = denied_access_message
         self.approval_parameters_check()
         #self.bot_display_name = ""
         self.threads = threads
@@ -223,6 +225,14 @@ class WebexBot(WebexWebsocketClient):
         log.info(f"Bot display name: {self.bot_display_name}")
 
         if not self.check_user_approved(user_email=user_email, approved_rooms=self.approved_rooms):
+            if is_one_on_one_space and hasattr(self, 'denied_access_message') and self.denied_access_message:
+                try:
+                    self.teams.messages.create(
+                        toPersonEmail=user_email,
+                        text=self.denied_access_message
+                    )
+                except Exception as e:
+                    log.warning(f"Failed to send denied access message to {user_email}: {e}")
             return
 
         # Remove the Bots display name from the message if this is not a 1-1
